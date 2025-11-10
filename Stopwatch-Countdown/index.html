@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Stopwatch & Countdown</title>
+  <meta name="theme-color" content="#07121a">
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa7b2; --accent:#7c5cff; --glass:rgba(255,255,255,0.04);
+      --success:#22c55e; --danger:#ff6b6b; --glass-2:rgba(255,255,255,0.02);
+      --surface:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color: #ffffff;
+    }
+    html.light{ --bg: #f6f8fb; --card:#ffffff; --muted:#556170; --accent:#6f56ff; --glass: rgba(2,6,23,0.04); color: #072028 }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:inherit; display:flex; align-items:center; justify-content:center; padding:20px; min-height:100vh;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      transition:background .25s ease, color .25s ease;
+    }
+    .wrap{width:100%; max-width:1100px}
+    .grid{display:grid; grid-template-columns: 1fr 360px; gap:20px}
+    @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+    .card{background:var(--card); border-radius:14px; padding:18px; box-shadow:0 6px 30px rgba(2,6,23,0.35);}
+    .header{display:flex; align-items:center; gap:12px; justify-content:space-between}
+    .branding{display:flex;align-items:center;gap:12px}
+    .logo{width:44px; height:44px; border-radius:10px; background:linear-gradient(135deg,var(--accent), #4dd2ff); display:flex; align-items:center; justify-content:center; font-weight:800; color:#042034; font-size:16px}
+    .title{line-height:1}
+    h1{font-size:18px;margin:0}
+    .controls-row{display:flex; gap:8px; align-items:center}
+    .segmented{display:flex; background:transparent; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.04)}
+    .segmented button{padding:8px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-weight:600}
+    .segmented button.active{background:var(--accent); color:#041827}
+    .display{display:flex; align-items:center; gap:12px; margin-top:18px}
+    .timebox{flex:1; padding:18px; border-radius:12px; background:var(--surface); display:flex; align-items:center; justify-content:space-between;}
+    .timebig{font-weight:800; font-size:44px; letter-spacing:1px}
+    .small{color:var(--muted); font-size:13px}
+    .right-controls{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .controls{display:flex; gap:8px; align-items:center}
+    button.btn{appearance:none; border:0; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--accent), #5be6ff); color:#042034; box-shadow: 0 8px 22px rgba(124,92,255,0.14);}
+    .btn.ghost{background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted)}
+    .btn.warn{background:linear-gradient(90deg,#ffad33,#ff6b6b); color:#07121a}
+    .circle-wrap{width:110px;height:110px; display:flex; align-items:center; justify-content:center; position:relative}
+    svg.clock{transform:rotate(-90deg)}
+    .center-dot{position:absolute; width:8px; height:8px; background:var(--accent); border-radius:50%}
+    .side{display:flex; flex-direction:column; gap:12px}
+    .panel{padding:14px; border-radius:12px; background:var(--card);}
+    .lap-list{max-height:330px; overflow:auto}
+    .lap{display:flex; justify-content:space-between; gap:8px; padding:10px; border-radius:10px; margin-bottom:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border:1px solid rgba(255,255,255,0.02)}
+    .lap .num{color:var(--muted); font-size:13px}
+    .lap .t{font-weight:700}
+    .meta{display:flex; gap:8px; align-items:center}
+    .small-muted{font-size:12px;color:var(--muted)}
+    .tips{margin-top:12px; color:var(--muted); font-size:13px}
+    .kbd{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;font-weight:700}
+    .lap-list::-webkit-scrollbar{width:8px}
+    .lap-list::-webkit-scrollbar-thumb{background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border-radius:6px}
+    @media (max-width:520px){ .timebig{font-size:32px} .circle-wrap{width:90px;height:90px} .header{flex-direction:column;align-items:flex-start;gap:10px} }
+    body.fullscreen-active { background: #000 !important; color: #fff !important; }
+    body.fullscreen-active .grid,
+    body.fullscreen-active .side,
+    body.fullscreen-active .header,
+    body.fullscreen-active footer {
+      display: none !important;
+    }
+    .fullscreen-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      z-index: 9999;
+      flex-direction: column;
+    }
+    .fullscreen-overlay.active { display: flex; }
+    .fullscreen-overlay .fullscreen-time {
+      font-size: 120px;
+      font-weight: 800;
+      line-height: 1;
+      color: #ffffff;
+      -webkit-font-smoothing:antialiased;
+      text-align: center;
+      padding: 0 20px;
+    }
+    .fullscreen-overlay .fullscreen-sub {
+      margin-top: 18px;
+      color: rgba(255,255,255,0.8);
+      font-size: 20px;
+    }
+    .fullscreen-exit {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    @media (max-width:900px){
+      .fullscreen-overlay .fullscreen-time { font-size: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="card">
+        <div class="header">
+          <div class="branding">
+            <div class="logo">KR</div>
+            <div class="title">
+              <h1>Stopwatch & Countdown</h1>
+            </div>
+          </div>
+          <div class="controls-row">
+            <div class="segmented" role="tablist" aria-label="mode">
+              <button id="modeStopwatch" class="active" aria-pressed="true">Stopwatch</button>
+              <button id="modeCountdown" aria-pressed="false">Countdown</button>
+            </div>
+            <button id="themeToggle" class="btn ghost" title="change theme">Theme</button>
+            <button id="fullscreenBtn" class="btn ghost" title="Full screen (F)">Full Screen</button>
+            <button id="installBtn" class="btn ghost" style="display:none">Install</button>
+          </div>
+        </div>
+        <div class="display">
+          <div class="timebox" id="timebox">
+            <div>
+              <div class="timebig" id="display">00:00:00.000</div>
+              <div class="small" id="subDisplay">00 hour 00 minute 00 second</div>
+            </div>
+            <div class="right-controls">
+              <div class="circle-wrap" aria-hidden="true">
+                <svg class="clock" width="110" height="110" viewBox="0 0 100 100">
+                  <defs>
+                    <linearGradient id="g2" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#7c5cff"/>
+                      <stop offset="100%" stop-color="#5be6ff"/>
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.04)" stroke-width="6" fill="none"></circle>
+                  <circle id="progress" cx="50" cy="50" r="44" stroke="url(#g2)" stroke-width="6" stroke-linecap="round" fill="none" stroke-dasharray="276.46" stroke-dashoffset="276.46"></circle>
+                </svg>
+                <div class="center-dot"></div>
+              </div>
+              <div class="controls">
+                <button class="btn primary" id="startBtn">Start</button>
+                <button class="btn ghost" id="lapBtn" disabled>Lap</button>
+                <button class="btn ghost" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+          <div class="small-muted">Keyboard: <span class="kbd">SPACE</span> start/stop • <span class="kbd">L</span> lap • <span class="kbd">R</span> reset • <span class="kbd">E</span> export • <span class="kbd">F</span> Full Screen</div>
+          <div style="flex:1"></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="panel card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div><strong>Lap List</strong><div class="small-muted">The latest lap is at the top</div></div>
+            <div class="meta">
+              <button class="btn ghost" id="clearLaps">Clear</button>
+              <button class="btn ghost" id="exportBtn">Export</button>
+            </div>
+          </div>
+          <div class="lap-list" id="laps"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+            <div class="small-muted">Total laps: <span id="lapCount">0</span></div>
+            <div class="small-muted">Best lap: <span id="bestLap">—</span></div>
+          </div>
+        </div>
+        <div class="panel card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>Settings & PWA</strong>
+              <div class="small-muted">PWA: try to install for offline use.</div>
+            </div>
+            <div class="small-muted">v1.3</div>
+          </div>
+          <hr style="border:none;height:1px;background:var(--glass);margin:12px 0;border-radius:2px">
+          <div class="small-muted">Note: JSON/CSV buttons removed from UI. JSON export is available via the export button if needed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="fullscreenOverlay" class="fullscreen-overlay" aria-hidden="true">
+    <button id="exitFullscreenBtn" class="fullscreen-exit" aria-label="Exit Fullscreen">Exit</button>
+    <div class="fullscreen-time" id="fullscreenTime">00:00:00.000</div>
+    <div class="fullscreen-sub" id="fullscreenSub">00 hour 00 minute 00 second</div>
+  </div>
+  <script>
+    // Keys
+    const STATE_KEY = 'kronometre_state_v3';
+    const LAPS_KEY = 'kronometre_laps_v3';
+    // Elements
+    const display = document.getElementById('display');
+    const subDisplay = document.getElementById('subDisplay');
+    const startBtn = document.getElementById('startBtn');
+    const lapBtn = document.getElementById('lapBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const progress = document.getElementById('progress');
+    const lapsEl = document.getElementById('laps');
+    const lapCountEl = document.getElementById('lapCount');
+    const bestLapEl = document.getElementById('bestLap');
+    const clearLapsBtn = document.getElementById('clearLaps');
+    const exportBtn = document.getElementById('exportBtn');
+    const modeStopwatch = document.getElementById('modeStopwatch');
+    const modeCountdown = document.getElementById('modeCountdown');
+    const themeToggle = document.getElementById('themeToggle');
+    const installBtn = document.getElementById('installBtn');
+    // Fullscreen elements
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+    const fullscreenTime = document.getElementById('fullscreenTime');
+    const fullscreenSub = document.getElementById('fullscreenSub');
+    const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+    // Runtime state
+    let mode = 'stopwatch'; // or 'countdown'
+    let running = false;
+    let startWall = null; // Date.now() when started (ms)
+    let elapsed = 0; // accumulated ms when not running for stopwatch, or remaining ms for countdown
+    let rafId = null;
+    let laps = loadLaps();
+    // Countdown-specific
+    let countdownTarget = null; // Date.now() + msRemaining
+    // PWA install event
+    let deferredInstallPrompt = null;
+    // Format helpers
+    function format(ms){
+      const sign = ms < 0 ? '-' : '';
+      const total = Math.abs(Math.floor(ms));
+      const milli = String(total % 1000).padStart(3,'0');
+      const sec = Math.floor(total/1000)%60;
+      const min = Math.floor(total/60000)%60;
+      const hour = Math.floor(total/3600000);
+      return `${sign}${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${milli}`;
+    }
+    function human(ms){
+      const sign = ms < 0 ? '-' : '';
+      const total = Math.abs(Math.floor(ms));
+      const s = Math.floor(total/1000)%60; const m = Math.floor(total/60000)%60; const h = Math.floor(total/3600000);
+      return `${sign}${String(h).padStart(2,'0')} hour ${String(m).padStart(2,'0')} minute ${String(s).padStart(2,'0')} second`;
+    }
+    // Persistence
+    function saveState(){
+      const state = { mode, running, startWall, elapsed, countdownTarget };
+      try{ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }catch(e){}
+    }
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STATE_KEY); if(!raw) return;
+        const s = JSON.parse(raw);
+        mode = s.mode || 'stopwatch';
+        running = !!s.running;
+        startWall = s.startWall || null;
+        elapsed = typeof s.elapsed === 'number' ? s.elapsed : 0;
+        countdownTarget = s.countdownTarget || null;
+      }catch(e){}
+    }
+    function saveLaps(){ try{ localStorage.setItem(LAPS_KEY, JSON.stringify(laps)); }catch(e){} }
+    function loadLaps(){ try{ return JSON.parse(localStorage.getItem(LAPS_KEY))||[] }catch(e){ return [] } }
+    // Current ms depending on mode
+    function currentMs(){
+      if(mode === 'stopwatch'){
+        if(running && startWall) return (Date.now() - startWall) + elapsed;
+        return elapsed;
+      }else{
+        if(running && countdownTarget) return countdownTarget - Date.now();
+        return elapsed;
+      }
+    }
+    function updateLoop(){
+      const t = currentMs();
+      display.textContent = format(t);
+      subDisplay.textContent = human(t);
+      if (document.body.classList.contains('fullscreen-active')) {
+        fullscreenTime.textContent = format(t);
+        fullscreenSub.textContent = human(t);
+      }
+      const circumference = 2*Math.PI*44; // r=44
+      let frac = 0;
+      if(mode==='stopwatch'){
+        const seconds = (t/1000) % 60; frac = seconds/60;
+      }else{
+        if(countdownTarget && typeof window._countdownDuration === 'number'){
+          const remaining = Math.max(0, t);
+          frac = 1 - (remaining / window._countdownDuration);
+        } else {
+          const seconds = (t/1000) % 60; frac = seconds/60;
+        }
+      }
+      const dash = circumference * (1-frac);
+      if (progress) try{ progress.style.strokeDashoffset = dash.toFixed(2); }catch(e){}
+      if(mode==='countdown' && running && t <= 0){
+        running = false; startWall = null; elapsed = 0; countdownTarget = null;
+        saveState();
+        cancelAnimationFrame(rafId);
+        startBtn.textContent = 'Start'; startBtn.classList.remove('warn'); startBtn.classList.add('primary');
+        lapBtn.disabled = true; lapBtn.classList.add('ghost');
+        alert('Countdown finished!');
+        renderLaps();
+        return;
+      }
+      rafId = requestAnimationFrame(updateLoop);
+    }
+    // Controls
+    function start(){
+      if(running) return;
+      if(mode==='countdown'){
+        if(!countdownTarget && (!elapsed || elapsed<=0)){
+          const mins = parseFloat(prompt('How many minutes do you want to count down? (e.g. 1.5 = 1 minute 30 seconds)', '1'));
+          if(!mins || isNaN(mins)) return;
+          window._countdownDuration = Math.round(mins*60000);
+          elapsed = window._countdownDuration;
+          countdownTarget = Date.now() + elapsed;
+        } else {
+          countdownTarget = Date.now() + elapsed;
+        }
+      } else {
+        startWall = Date.now();
+      }
+      running = true; document.body.classList.add('running');
+      startBtn.textContent = 'Pause'; startBtn.classList.remove('primary'); startBtn.classList.add('warn');
+      lapBtn.disabled = false; lapBtn.classList.remove('ghost');
+      saveState();
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateLoop);
+    }
+    function stop(){
+      if(!running) return;
+      if(mode==='stopwatch'){
+        elapsed = currentMs(); startWall = null;
+      }else{
+        elapsed = Math.max(0, currentMs()); countdownTarget = null;
+      }
+      running = false; document.body.classList.remove('running');
+      cancelAnimationFrame(rafId);
+      startBtn.textContent = 'Start'; startBtn.classList.remove('warn'); startBtn.classList.add('primary');
+      lapBtn.disabled = true; lapBtn.classList.add('ghost');
+      saveState();
+      renderLaps();
+    }
+    function reset(){
+      const keepLaps = confirm('Reset the time? (Cancel: will only continue)');
+      if(!keepLaps){ laps = []; saveLaps(); }
+      stop(); elapsed = 0; startWall = null; countdownTarget = null; window._countdownDuration = undefined;
+      display.textContent = '00:00:00.000'; subDisplay.textContent = '00 hour 00 minute 00 second';
+      if (progress) try{ progress.style.strokeDashoffset = (2*Math.PI*44).toFixed(2); }catch(e){}
+      saveState(); renderLaps();
+    }
+    function recordLap(){
+      const time = currentMs();
+      const lap = {id:Date.now(), t: time, mode, at: (new Date()).toISOString()};
+      laps.unshift(lap);
+      saveLaps(); renderLaps(); saveState();
+    }
+    function renderLaps(){
+      lapsEl.innerHTML = '';
+      let best = null;
+      laps.forEach((lap, idx)=>{
+        if(best===null || lap.t < best) best = lap.t;
+        const el = document.createElement('div'); el.className='lap';
+        el.innerHTML = `<div class=\"num\">#${laps.length-idx}</div><div class=\"t\">${format(lap.t)}</div>`;
+        el.addEventListener('click', ()=>{ navigator.clipboard?.writeText(format(lap.t)); el.style.opacity=0.7; setTimeout(()=>el.style.opacity=1,200); });
+        lapsEl.appendChild(el);
+      });
+      lapCountEl.textContent = laps.length;
+      bestLapEl.textContent = best ? format(best) : '—';
+    }
+    exportBtn.addEventListener('click', ()=>{
+      if(laps.length===0){ alert('No laps to export.'); return; }
+      const data = { exportedAt: new Date().toISOString(), mode, laps };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='stopwatch_laps.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+    startBtn.addEventListener('click', ()=>{ running? stop() : start(); });
+    lapBtn.addEventListener('click', ()=>{ if(!lapBtn.disabled) recordLap(); });
+    resetBtn.addEventListener('click', reset);
+    clearLapsBtn.addEventListener('click', ()=>{ if(confirm('Clear all laps?')){ laps=[]; saveLaps(); renderLaps(); saveState(); } });
+    function setMode(m){
+      mode = m; modeStopwatch.classList.toggle('active', m==='stopwatch'); modeStopwatch.setAttribute('aria-pressed', m==='stopwatch');
+      modeCountdown.classList.toggle('active', m==='countdown'); modeCountdown.setAttribute('aria-pressed', m==='countdown');
+      if(m==='countdown'){
+        lapBtn.disabled = true; lapBtn.classList.add('ghost');
+      } else {
+        lapBtn.disabled = !running; lapBtn.classList.toggle('ghost', !running);
+      }
+      saveState();
+    }
+    modeStopwatch.addEventListener('click', ()=> setMode('stopwatch'));
+    modeCountdown.addEventListener('click', ()=> setMode('countdown'));
+    function applyTheme(theme){
+      if(theme === 'light') document.documentElement.classList.add('light');
+      else document.documentElement.classList.remove('light');
+      localStorage.setItem('kron_theme',''+theme);
+    }
+    themeToggle.addEventListener('click', ()=>{
+      const cur = localStorage.getItem('kron_theme') || 'dark';
+      const next = cur==='dark' ? 'light' : 'dark'; applyTheme(next);
+    });
+    (function initTheme(){ const t = localStorage.getItem('kron_theme') || 'dark'; applyTheme(t); })();
+    window.addEventListener('keydown',(e)=>{
+      const tag = document.activeElement?.tagName;
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable;
+      if (e.code==='Space' && !inInput){ e.preventDefault(); running? stop() : start(); }
+      if(!inInput && e.key.toLowerCase()==='l'){ if(!lapBtn.disabled) recordLap(); }
+      if(!inInput && e.key.toLowerCase()==='r'){ reset(); }
+      if(!inInput && e.key.toLowerCase()==='e'){ exportBtn.click(); }
+      if(!inInput && e.key.toLowerCase()==='f'){
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    });
+    let lastTap = 0;
+    const circleWrap = document.querySelector('.circle-wrap');
+    if (circleWrap) {
+      circleWrap.addEventListener('touchend', (ev)=>{
+        const t = Date.now(); if(t-lastTap<300){ if(!lapBtn.disabled) recordLap(); } lastTap = t;
+      });
+    }
+    (function pwaSetup(){
+      const manifest = {
+        name: 'Stopwatch • Customized',
+        short_name: 'Stopwatch',
+        start_url: '.',
+        display:'standalone',
+        background_color:'#07121a',
+        theme_color:'#07121a',
+        icons:[{src:'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 120 120%22><rect width=%22120%22 height=%22120%22 rx=%2220%22 fill=%22%237c5cff%22/></svg>', sizes:'120x120', type:'image/svg+xml'}]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('link'); link.rel='manifest'; link.href = url; document.head.appendChild(link);
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('/sw.js').then(reg => { console.log('ServiceWorker registered', reg); }).catch(err => { console.warn('ServiceWorker registration failed (try hosting the site).', err); });
+      }
+      window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredInstallPrompt = e; installBtn.style.display = 'inline-block'; });
+      installBtn.addEventListener('click', async ()=>{ if(!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); const choice = await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; installBtn.style.display = 'none'; });
+    })();
+    function enterFullscreenOverlay(){
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(()=>{/* ignore */});
+      }
+      document.body.classList.add('fullscreen-active');
+      fullscreenOverlay.classList.add('active');
+      fullscreenOverlay.setAttribute('aria-hidden', 'false');
+      const t = currentMs();
+      fullscreenTime.textContent = format(t);
+      fullscreenSub.textContent = human(t);
+    }
+    function exitFullscreenOverlay(){
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{/* ignore */});
+      }
+      document.body.classList.remove('fullscreen-active');
+      fullscreenOverlay.classList.remove('active');
+      fullscreenOverlay.setAttribute('aria-hidden', 'true');
+    }
+    function toggleFullscreen(){
+      if (document.body.classList.contains('fullscreen-active') || document.fullscreenElement) {
+        exitFullscreenOverlay();
+      } else {
+        enterFullscreenOverlay();
+      }
+    }
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    exitFullscreenBtn.addEventListener('click', exitFullscreenOverlay);
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        if (document.body.classList.contains('fullscreen-active')) {
+          document.body.classList.remove('fullscreen-active');
+        }
+        if (fullscreenOverlay.classList.contains('active')) {
+          fullscreenOverlay.classList.remove('active');
+          fullscreenOverlay.setAttribute('aria-hidden','true');
+        }
+      }
+    });
+    (function init(){
+      loadState(); laps = loadLaps(); renderLaps();
+      if (progress) try{ progress.style.strokeDasharray = (2*Math.PI*44).toFixed(2); }catch(e){}
+      setMode(mode);
+      if(running){
+        if(mode==='stopwatch'){
+          if(!startWall) startWall = Date.now() - elapsed;
+        } else {
+          if(!countdownTarget && elapsed>0) countdownTarget = Date.now() + elapsed;
+        }
+        startBtn.textContent = 'Pause'; startBtn.classList.remove('primary'); startBtn.classList.add('warn');
+        lapBtn.disabled = mode==='countdown'; lapBtn.classList.toggle('ghost', mode==='countdown');
+        rafId = requestAnimationFrame(updateLoop);
+      } else {
+        display.textContent = format(elapsed);
+        subDisplay.textContent = human(elapsed);
+        startBtn.textContent = 'Start'; startBtn.classList.remove('warn'); startBtn.classList.add('primary');
+      }
+    })();
+  </script>
+<footer title="Xaynx" style="
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: white;
+  padding: 10px 0;
+  background: transparent;
+  font-size: 14px;
+  z-index: 1000;
+">
+  &copy; Made By Xaynx
+</footer>
+</body>
+</html>
